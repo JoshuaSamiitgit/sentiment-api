@@ -1,60 +1,19 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from fastapi.responses import JSONResponse
-import openai
-import os
+from openai import OpenAI
+client = OpenAI()
 
-# Initialize FastAPI
-app = FastAPI()
-
-# Set your OpenAI API key
-openai.api_key = os.getenv("OPENAI_API_KEY")
-
-
-# ----------- Request Model -----------
-
-class CommentRequest(BaseModel):
-    comment: str
-
-
-# ----------- Response Schema for Structured Output -----------
-
-sentiment_schema = {
-    "name": "sentiment_analysis",
-    "schema": {
-        "type": "object",
-        "properties": {
-            "sentiment": {
-                "type": "string",
-                "enum": ["positive", "negative", "neutral"]
-            },
-            "rating": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 5
-            }
-        },
-        "required": ["sentiment", "rating"],
-        "additionalProperties": False
-    }
-}
-
-
-# ----------- Endpoint -----------
-
-@app.post("/comment", response_class=JSONResponse)
+@app.post("/comment")
 async def analyze_comment(request: CommentRequest):
-    
+
     if not request.comment or request.comment.strip() == "":
         raise HTTPException(status_code=400, detail="Comment cannot be empty")
 
     try:
-        response = openai.responses.create(
+        response = client.responses.create(
             model="gpt-4.1-mini",
             input=[
                 {
                     "role": "system",
-                    "content": "You are a sentiment analysis engine."
+                    "content": "You are a sentiment analysis engine. Return sentiment and rating."
                 },
                 {
                     "role": "user",
@@ -67,7 +26,7 @@ async def analyze_comment(request: CommentRequest):
             }
         )
 
-        result = response.output[0].content[0].text
+        result = response.output_parsed
 
         return JSONResponse(
             content=result,
